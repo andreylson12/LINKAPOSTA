@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aposta_andre — Palpites</title>
+<style>
+  :root{--bg:#0f172a;--card:#111827;--text:#e5e7eb;--muted:#9ca3af;--accent:#22c55e}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Arial}
+  header{padding:16px 20px;font-weight:700;font-size:18px;background:#0b1220}
+  .wrap{max-width:1000px;margin:20px auto;padding:0 16px}
+  .card{background:var(--card);border-radius:14px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,.25);margin-bottom:16px}
+  .row{display:grid;grid-template-columns:1fr 520px;gap:12px;align-items:center}
+  .teams{font-weight:600}
+  .meta{color:var(--muted);font-size:12px;margin-top:4px}
+  .ops{display:flex;gap:8px;flex-wrap:wrap}
+  .op{flex:1;min-width:140px}
+  .op input{display:none}
+  .op label{display:block;border:1px solid #374151;border-radius:10px;padding:10px 12px;text-align:center;cursor:pointer}
+  .op small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+  .op input:checked + label{border-color:var(--accent);outline:2px solid rgba(34,197,94,.35)}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}
+  button{background:var(--accent);border:0;color:#052e16;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700}
+  .ghost{background:#1f2937;color:var(--text)}
+  .badge{display:inline-block;background:#1f2937;border:1px solid #374151;color:#9ca3af;padding:2px 8px;border-radius:999px;font-size:12px;margin-left:8px}
+  .readonly .op label, .readonly select, .readonly input{cursor:not-allowed;opacity:.7}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:12px;color:var(--muted)}
+  .field input, .field select{background:#0b1220;border:1px solid #374151;border-radius:10px;color:#e5e7eb;padding:10px 12px}
+  .marketRow{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .marketRow label{color:#9ca3af;font-size:12px}
+  .resume{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:10px}
+  .kpi{background:#0b1220;border:1px solid #1f2937;border-radius:12px;padding:12px}
+  .kpi .label{font-size:12px;color:var(--muted)}
+  .kpi .val{font-size:18px;font-weight:700;margin-top:6px}
+  footer{color:#6b7280;font-size:12px;margin:24px 0 32px}
+  .mono{font-family:ui-monospace,Consolas,monospace}
+  .preview{width:360px;display:block;background:#0b1220;border:1px dashed #374151;border-radius:12px;padding:8px}
+  .note{font-size:12px;color:#9ca3af;margin-top:8px}
+  .pixbox{display:grid;grid-template-columns:160px 1fr;gap:16px;align-items:start}
+  .copy{background:#1f2937;border:1px solid #374151;color:#e5e7eb;padding:10px 12px;border-radius:10px;cursor:pointer}
+  .muted{color:#9ca3af;font-size:12px}
+  .kbd{font-family:ui-monospace,Consolas,monospace;background:#0b1220;border:1px solid #374151;border-radius:8px;padding:8px}
+
+  /* Avisos do limitador */
+  .warn{color:#facc15;font-size:12px;margin-top:6px}
+  .err{color:#f87171;font-size:12px;margin-top:6px}
+</style>
+</head>
+<body>
+  <header>Aposta_andre — Bolão <span class="badge" id="modeBadge">Edição</span></header>
+
+  <div class="wrap">
+    <div id="lista"></div>
+
+    <!-- Apostador & Cálculo -->
+    <div class="card" id="calcCard">
+      <div class="grid2">
+        <div class="field">
+          <label for="nomeApostador">Seu nome</label>
+          <input id="nomeApostador" placeholder="Ex.: Andreylson" />
+        </div>
+        <div class="field">
+          <label for="valorAposta">Valor apostado (R$)</label>
+          <input id="valorAposta" type="number" step="0.01" min="0" placeholder="0,00" />
+          <small id="stakeMsg" class="warn"></small>
+        </div>
+      </div>
+
+      <div class="resume">
+        <div class="kpi"><div class="label">Jogos selecionados</div><div class="val" id="kpiQtd">0</div></div>
+        <div class="kpi"><div class="label">Odd combinada</div><div class="val" id="kpiOdd">–</div></div>
+        <div class="kpi"><div class="label">Retorno potencial</div><div class="val" id="kpiRetorno">–</div></div>
+        <div class="kpi"><div class="label">Lucro potencial</div><div class="val" id="kpiLucro">–</div></div>
+      </div>
+    </div>
+
+    <!-- Bilhetinho -->
+    <div class="card">
+      <div class="actions">
+        <button id="btnBilhete">Gerar bilhete</button>
+        <a id="btnBilheteZap" class="ghost" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-block;padding:10px 14px;border-radius:10px">Enviar bilhete (texto) no WhatsApp</a>
+        <button class="ghost" id="btnBilhetePNG" disabled>Salvar bilhete (PNG)</button>
+      </div>
+      <canvas id="bilheteCanvas" width="720" height="10" class="preview"></canvas>
+      <div class="note">Para enviar a imagem no WhatsApp: gere o bilhete → clique em “Salvar bilhete (PNG)” → anexe o arquivo no WhatsApp.</div>
+    </div>
+
+    <!-- PAGAMENTO PIX -->
+    <div class="card" id="pixCard" style="display:none">
+      <h3 style="margin:0 0 12px 0">Pagamento via PIX</h3>
+      <div class="pixbox">
+        <div>
+          <img id="pixQr" alt="QR PIX" style="width:160px;height:160px;border-radius:12px;background:#0b1220;border:1px solid #374151;object-fit:contain" />
+          <button id="btnPixPng" class="ghost" style="margin-top:8px;width:160px">Baixar QR (PNG)</button>
+        </div>
+        <div>
+          <div class="muted">Chave PIX (CPF)</div>
+          <div class="kbd" style="margin-bottom:8px" id="pixKeyShown">61144602351</div>
+          <button class="copy" id="btnCopyKey">Copiar chave</button>
+
+          <div class="muted" style="margin-top:14px">PIX Copia e Cola</div>
+          <div class="kbd mono" id="pixPayload" style="margin-bottom:8px;max-height:120px;overflow:auto">—</div>
+          <button class="copy" id="btnCopyPayload">Copiar Copia e Cola</button>
+
+          <div class="muted" style="margin-top:12px">Valor a pagar</div>
+          <div class="kbd" id="pixValor">R$ 0,00</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      *Exemplo recreativo (sem dinheiro). Guarde o bilhete/PNG e o comprovante PIX para conferência.*
+    </footer>
+  </div>
+
+<script>
+/** ========= Mercados disponíveis (sem handicap) ========= */
+const MARKET_CATALOG = {
+  "resultado": {
+    label: "Resultado (1X2)",
+    options: [
+      { id:"C", label:"Casa" },
+      { id:"E", label:"Empate" },
+      { id:"F", label:"Fora" }
+    ]
+  },
+  "overunder": {
+    label: "Total de gols",
+    options: [
+      { id:"O5.5", label:"+ 5.5" },
+      { id:"U5.5", label:" - 5.5" },
+      { id:"O6.5", label:" + 6.5" },
+      { id:"U6.5", label:" - 6.5" },
+      { id:"O7.5", label:"+ 7.5" },
+      { id:"U7.5", label:" - 7.5" }
+    ]
+  },
+  "resultado_ht": {
+    label: "Resultado 1º tempo",
+    options: [
+      { id:"C", label:"Casa" },
+      { id:"E", label:"Empate" },
+      { id:"F", label:"Fora" }
+    ]
+  },
+  "jogador_gols": {
+    label: "Jogador — quantidade de gols",
+    options: [
+      { id:"P1+", label:"5 gols" },
+      { id:"P2+", label:"7 gols" },
+      { id:"P3+", label:"9 gols" }
+    ],
+    extraFields: true
+  }
+};
+
+/** ========= Jogos com ODDS (com lista fixa de jogadores) ========= */
+const JOGOS = [
+  {
+    id: "J1",
+    casa: "Meninos da Vila",
+    fora: "Pebas",
+    quando: "04/10/2025 14:00",
+    players: [
+      "Jeanderson (MDV)", "Vinicius (MDV)", "Eduardo (MDV)",
+      "Player (PEB)", "Player (PEB)", "Player (PEB)"
+    ],
+    markets: {
+      resultado: { C:1.45, E:2.20, F:1.75 },
+      overunder: { "O5.5":1.20, "U5.5":1.40, "O6.5":1.35, "U6.5":1.42, "O7.5":1.50, "U7.5":1.45 },
+      resultado_ht: { C:1.40, E:2.00, F:1.60 },
+      jogador_gols: { "P1+":1.35, "P2+":1.45, "P3+":1.50 }
+    }
+  },
+  {
+    id: "J2",
+    casa: "Gordos FC",
+    fora: "Revelations",
+    quando: "05/10/2025 15:00",
+    players: [
+      "Thiago Strasser (GFC)", "Junior (GFC)", "Rafael (GFC)",
+      "Kaue (REV)", "Denilson (REV)", "Emanuel (REV)"
+    ],
+    markets: {
+      resultado: { C:2.10, E:3.10, F:1.80 },
+      overunder: { "O5.5":1.25, "U5.5":1.40, "O6.5":1.35, "U6.5":1.42, "O7.5":1.37, "U7.5":1.47 },
+      resultado_ht: { C:2.50, E:2.60, F:1.60 },
+      jogador_gols: { "P1+":1.30, "P2+":1.43, "P3+":1.50 }
+    }
+  },
+  {
+    id: "J3",
+    casa: "Museu",
+    fora: "Real venteranos",
+    quando: "06/10/2025 16:00",
+    players: [
+      "Genildo (MUS)", "Ronilson (MUS)", "Junior (MUS)",
+      "Reginaldo (RV)", "Antonio Luiz (RV)", "Weliton (RV)"
+    ],
+    markets: {
+      resultado: { C:1.40, E:2.00, F:3.90 },
+      overunder: { "O5.5":1.20, "U5.5":1.40, "O6.5":1.25, "U6.5":1.45, "O7.5":1.30, "U7.5":1.48 },
+      resultado_ht: { C:1.40, E:2.10, F:2.80 },
+      jogador_gols: { "P1+":1.20, "P2+":1.44, "P3+":1.60 }
+    }
+  }
+];
+
+/** ========= PIX CONFIG ========= */
+const PIX_KEY_RAW = "611.446.023-51";
+const PIX_KEY = PIX_KEY_RAW.replace(/\D/g,'');
+const MERCHANT_NAME = "APOSTA ANDRE";
+const MERCHANT_CITY = "BRASIL";
+
+/** ========= Limite de aposta ========= */
+const STAKE_MAX = 3; // R$ 3,00
+
+/** ========= Utils ========= */
+const $ = (s, el=document)=>el.querySelector(s);
+const $$ = (s, el=document)=>Array.from(el.querySelectorAll(s));
+const byId = id => document.getElementById(id);
+const encode = obj => btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+const decode = str => JSON.parse(decodeURIComponent(escape(atob(str))));
+const fmtBRL = v => isFinite(v) ? v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}) : "–";
+const toNumber = v => { const n = Number(v); return isFinite(n) ? n : 0; };
+const nowStr = ()=> new Date().toLocaleString('pt-BR');
+function wrapText(ctx, text, x, y, maxWidth, lineHeight){
+  const words = text.split(' '); let line = '', outY = y;
+  for (let n=0;n<words.length;n++){
+    const test = line + words[n] + ' ';
+    if (ctx.measureText(test).width > maxWidth && n>0){ ctx.fillText(line, x, outY); line = words[n] + ' '; outY += lineHeight; }
+    else line = test;
+  }
+  ctx.fillText(line, x, outY); return outY + lineHeight;
+}
+function toAsciiUpper(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(); }
+
+/** ========= Render ========= */
+const lista = byId('lista');
+
+function render(readonly=false, picks={}, snapshot={}){
+  lista.innerHTML = '';
+  if (readonly) document.body.classList.add('readonly'); else document.body.classList.remove('readonly');
+  $('#modeBadge').textContent = readonly ? 'Somente leitura' : 'Edição';
+
+  JOGOS.forEach(j => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const defaultMarket = Object.keys(j.markets)[0];
+
+    // seletor de jogador fixo por jogo
+    const playerSelectHtml = (j.players && j.players.length)
+      ? `<select id="playerName-${j.id}" ${readonly?'disabled':''} style="flex:1">
+           <option value="">Selecione o jogador</option>
+           ${j.players.map(p=>`<option value="${p}">${p}</option>`).join('')}
+         </select>`
+      : `<input id="playerName-${j.id}" placeholder="Nome do jogador" ${readonly?'disabled':''} style="flex:1" />`;
+
+    card.innerHTML = `
+      <div class="row">
+        <div>
+          <div class="teams">${j.casa} <span class="badge">vs</span> ${j.fora} <span class="badge">Aposta_andre</span></div>
+          <div class="meta">${j.quando}</div>
+          <div class="marketRow">
+            <label for="mkt-${j.id}">Mercado:</label>
+            <select id="mkt-${j.id}" ${readonly?'disabled':''}>
+              ${Object.keys(j.markets).map(mId=>{
+                const selected = (snapshot[j.id]?.market || defaultMarket)===mId ? 'selected' : '';
+                const label = MARKET_CATALOG[mId]?.label || mId;
+                return `<option value="${mId}" ${selected}>${label}</option>`;
+              }).join('')}
+            </select>
+          </div>
+        </div>
+        <div>
+          <div class="ops" id="ops-${j.id}"></div>
+          <div class="marketRow" id="playerRow-${j.id}" style="display:none">
+            <label>Jogador:</label>
+            ${playerSelectHtml}
+            <select id="playerGols-${j.id}" ${readonly?'disabled':''}>
+              <option value="P1+">5 gols</option>
+              <option value="P2+">7 gols</option>
+              <option value="P3+">9 gols</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    `;
+    lista.appendChild(card);
+
+    const sel = byId(`mkt-${j.id}`);
+    const currentMarket = sel.value;
+    renderMarketOptions(j, currentMarket, picks, snapshot, readonly);
+
+    sel.addEventListener('change', e=>{
+      renderMarketOptions(j, e.target.value, picks, snapshot, readonly);
+      updateResumo();
+    });
+  });
+
+  $$('.ops input').forEach(inp=>inp.addEventListener('change', updateResumo));
+  JOGOS.forEach(j=>{
+    const r = byId(`playerRow-${j.id}`);
+    if (r){
+      const nameEl = byId(`playerName-${j.id}`);
+      const golsEl = byId(`playerGols-${j.id}`);
+      if (nameEl) {
+        if (nameEl.tagName === 'SELECT') nameEl.addEventListener('change', updateResumo);
+        else nameEl.addEventListener('input', updateResumo);
+      }
+      if (golsEl) golsEl.addEventListener('change', ()=>{
+        const radio = $(`#ops-${j.id} input[type="radio"][value="${golsEl.value}"]`);
+        if (radio && !radio.checked) { radio.checked = true; }
+        updateResumo();
+      });
+    }
+  });
+}
+
+function renderMarketOptions(jogo, marketId, picks, snapshot, readonly){
+  const opsBox = byId(`ops-${jogo.id}`);
+  const catalog = MARKET_CATALOG[marketId] || { options: [] };
+  const odds = jogo.markets[marketId] || {};
+  const snap = snapshot[jogo.id];
+
+  const showPlayer = !!catalog.extraFields;
+  const playerRow = byId(`playerRow-${jogo.id}`);
+  if (playerRow) playerRow.style.display = showPlayer ? '' : 'none';
+
+  if (showPlayer) {
+    const nameEl = byId(`playerName-${jogo.id}`);
+    const golsEl = byId(`playerGols-${jogo.id}`);
+    if (snap?.extra?.player && nameEl) {
+      if (nameEl.tagName === 'SELECT') {
+        Array.from(nameEl.options).forEach(opt=>{ if (opt.value === snap.extra.player) opt.selected = true; });
+      } else {
+        nameEl.value = snap.extra.player;
+      }
+    }
+    if (snap?.option && golsEl) golsEl.value = snap.option;
+  }
+
+  opsBox.innerHTML = catalog.options.map(opt=>{
+    const optOdd = Number(odds[opt.id] ?? NaN);
+    const checked = (snap && snap.market===marketId && snap.option===opt.id) ? 'checked' : '';
+    const disabled = readonly ? 'disabled' : '';
+    const inputId = `${jogo.id}-${marketId}-${opt.id}`;
+    return `
+      <div class="op">
+        <input type="radio" name="${jogo.id}" id="${inputId}" value="${opt.id}" data-market="${marketId}" data-odd="${optOdd}" ${checked} ${disabled}>
+        <label for="${inputId}">
+          ${opt.label}
+          <small>${isFinite(optOdd)?`cot ${optOdd.toFixed(2)}`:'—'}</small>
+        </label>
+      </div>
+    `;
+  }).join('');
+}
+
+/** ========= Coleta & cálculo ========= */
+function coletarPalpites() {
+  const res = {};
+  const snap = {};
+  JOGOS.forEach(j=>{
+    const marketSel = byId(`mkt-${j.id}`);
+    const marketId = marketSel ? marketSel.value : Object.keys(j.markets)[0];
+
+    if (marketId === 'jogador_gols') {
+      const golsEl = byId(`playerGols-${j.id}`);
+      const nameEl = byId(`playerName-${j.id}`);
+      const option = golsEl ? golsEl.value : null;
+      const odd = Number(j.markets.jogador_gols[option] ?? NaN);
+      const playerName = nameEl ? (nameEl.tagName === 'SELECT' ? nameEl.value : nameEl.value.trim()) : '';
+      const hasSelection = !!(playerName && option && isFinite(odd));
+      if (hasSelection) {
+        res[j.id] = option;
+        snap[j.id] = { market: marketId, option, odd, extra: { player: playerName } };
+      }
+      return;
+    }
+
+    const sel = $(`#ops-${j.id} input[type="radio"]:checked`);
+    if (sel) {
+      const option = sel.value;
+      const odd = Number(sel.dataset.odd);
+      res[j.id] = option;
+      snap[j.id] = { market: marketId, option, odd };
+    }
+  });
+  return { picks: res, snapshot: snap };
+}
+
+function calcCombinada(snapshot) {
+  const ids = Object.keys(snapshot);
+  if (!ids.length) return { qtd:0, odd:null };
+  let odd = 1;
+  ids.forEach(id => { odd *= Number(snapshot[id].odd || 1); });
+  return { qtd: ids.length, odd };
+}
+
+/** ========= Validação com limite de R$3 ========= */
+function updateResumo() {
+  const { snapshot } = coletarPalpites();
+  const nome = byId('nomeApostador').value.trim();
+  const valor = toNumber(byId('valorAposta').value);
+
+  const { qtd, odd } = calcCombinada(snapshot);
+  byId('kpiQtd').textContent = String(qtd);
+  byId('kpiOdd').textContent = odd ? odd.toFixed(2) : '–';
+
+  const retorno = odd ? valor * odd : NaN;
+  const lucro = odd ? (retorno - valor) : NaN;
+  byId('kpiRetorno').textContent = fmtBRL(retorno);
+  byId('kpiLucro').textContent = isFinite(lucro) ? fmtBRL(lucro) : '–';
+
+  const msgEl = byId('stakeMsg');
+  const btnBilhete = byId('btnBilhete');
+  const btnBilhetePNG = byId('btnBilhetePNG');
+
+  // validação
+  let ok = true, msg = '';
+  if (!qtd) { ok = false; msg = 'Selecione pelo menos 1 jogo.'; }
+  else if (!Number.isFinite(valor) || valor <= 0) { ok = false; msg = 'Informe um valor de aposta maior que 0.'; }
+  else if (valor > STAKE_MAX) { ok = false; msg = `Valor máximo permitido: ${fmtBRL(STAKE_MAX)}.`; }
+
+  if (!ok) { msgEl.textContent = msg; msgEl.className = 'err'; }
+  else { msgEl.textContent = `Aposta até ${fmtBRL(STAKE_MAX)}.`; msgEl.className = 'warn'; }
+
+  btnBilhete.disabled = !ok;
+  btnBilhetePNG.disabled = !ok;
+
+  return { nome, valor, qtd, odd, retorno, lucro };
+}
+
+/** ========= Link conferível ========= */
+function gerarLinkConferencia() {
+  const { picks, snapshot } = coletarPalpites();
+  const resumo = updateResumo();
+  const payload = { picks, snapshot, nome: resumo.nome || '', valor: resumo.valor || 0, ts: Date.now() };
+  const base = location.origin + location.pathname;
+  return `${base}?p=${encode(payload)}`;
+}
+
+/** Helpers para bilhete */
+function marketLabel(mId){ return MARKET_CATALOG[mId]?.label || mId; }
+function optionLabel(mId, optId){
+  const opts = MARKET_CATALOG[mId]?.options || [];
+  return (opts.find(o=>o.id===optId)?.label) || optId;
+}
+
+/** ========= Bilhete (texto p/ WhatsApp) ========= */
+function buildBilheteTexto() {
+  const { picks, snapshot } = coletarPalpites();
+  const resumo = updateResumo();
+  const url = gerarLinkConferencia();
+  const ids = Object.keys(picks);
+  const linhas = [];
+  linhas.push(`Aposta_andre — Bilhete`);
+  linhas.push(`Cliente: ${resumo.nome || '—'}`);
+  linhas.push(`Data: ${nowStr()}`);
+  linhas.push('');
+  ids.forEach((id,i)=>{
+    const j = JOGOS.find(x=>x.id===id);
+    const s = snapshot[id];
+    const mLabel = marketLabel(s.market);
+    let selTxt = `${optionLabel(s.market, s.option)}`;
+    if (s.market==='jogador_gols' && s.extra?.player) {
+      selTxt = `Jogador: ${s.extra.player} — ${optionLabel(s.market, s.option)}`;
+    }
+    linhas.push(`${i+1}) ${j.casa} vs ${j.fora}`);
+    linhas.push(`   ${j.quando}`);
+    linhas.push(`   Mercado: ${mLabel}`);
+    linhas.push(`   Seleção: ${selTxt} | Odd: ${Number(s.odd).toFixed(2)}`);
+  });
+  linhas.push('');
+  linhas.push(`Odd combinada: ${resumo.odd ? resumo.odd.toFixed(2) : '—'}`);
+  linhas.push(`Valor: ${fmtBRL(resumo.valor)} | Retorno: ${isFinite(resumo.retorno)? fmtBRL(resumo.retorno) : '—'}`);
+  linhas.push('');
+  linhas.push(`Conferir: ${url}`);
+  return linhas.join('\n');
+}
+
+/** ========= Bilhete (PNG) ========= */
+function desenharBilhetePNG() {
+  const { picks, snapshot } = coletarPalpites();
+  const resumo = updateResumo();
+  const url = gerarLinkConferencia();
+  const ids = Object.keys(picks);
+
+  const canvas = byId('bilheteCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const W = 720, P = 24;
+  let y = 0;
+  const H = 200 + 130*ids.length + 160;
+  canvas.width = W; 
+  canvas.height = H;
+
+  const azul = '#0a1b6f', bege = '#f5ecd7', texto = '#2b2b2b', cinza = '#7a7a7a', borda = '#c9bfa6';
+
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = bege; ctx.fillRect(P/2, P/2, W-P, H-P);
+  ctx.strokeStyle = borda; ctx.lineWidth = 2; ctx.strokeRect(P/2+1, P/2+1, W-P-2, H-P-2);
+
+  ctx.fillStyle = azul; ctx.fillRect(P/2, P/2, W-P, 64);
+  ctx.fillStyle = '#ffffff'; ctx.font = 'bold 28px Arial'; ctx.textAlign = 'center';
+  ctx.fillText('APOSTA_ANDRE', W/2, P/2 + 40); 
+  y = P/2 + 64;
+
+  ctx.fillStyle = texto; ctx.textAlign='center'; ctx.font = '14px Arial';
+  ctx.fillText('www.aposta_andre', W/2, y + 24); 
+  y += 24;
+
+  ctx.strokeStyle = borda; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(P, y+12); ctx.lineTo(W-P, y+12); ctx.stroke(); ctx.setLineDash([]);
+
+  y += 30; ctx.textAlign='left'; ctx.fillStyle = texto; ctx.font='16px Arial';
+  ctx.fillText('Aposta Múltipla', P, y); y += 22;
+  ctx.fillStyle = cinza; ctx.fillText(`DATA: ${nowStr()}`, P, y); y += 18;
+  ctx.fillText(`CLIENTE: ${byId('nomeApostador').value.trim() || '—'}`, P, y); y += 28;
+
+  ctx.fillStyle = texto; ctx.font='bold 16px Arial'; ctx.fillText('APOSTA', P, y);
+  ctx.textAlign='right'; ctx.fillText('COTAÇÃO', W-P, y);
+  y += 10; ctx.strokeStyle = borda; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(P, y+8); ctx.lineTo(W-P, y+8); ctx.stroke(); ctx.setLineDash([]);
+  y += 24;
+
+  ctx.textAlign='left'; ctx.fillStyle = texto; ctx.font='16px Arial';
+  ids.forEach(id=>{
+    const j = JOGOS.find(x=>x.id===id);
+    const s = snapshot[id];
+
+    ctx.font='bold 15px Arial'; y = wrapText(ctx, `Futebol — ${j.quando}`, P, y, W-P*2, 20);
+    ctx.font='16px Arial'; y = wrapText(ctx, `${j.casa} x ${j.fora}`, P, y, W-P*2, 20);
+
+    const mLabel = marketLabel(s.market);
+    let selTxt = `${optionLabel(s.market, s.option)}`;
+    if (s.market==='jogador_gols' && s.extra?.player) {
+      selTxt = `Jogador: ${s.extra.player} — ${optionLabel(s.market, s.option)}`;
+    }
+    y = wrapText(ctx, `Mercado: ${mLabel}`, P, y, W-P*2, 20);
+    wrapText(ctx, `Seleção: ${selTxt}`, P, y, W-P*2-80, 20);
+
+    ctx.textAlign='right'; ctx.font='16px Arial';
+    ctx.fillText(Number(s.odd).toFixed(2), W-P, y-2);
+
+    ctx.textAlign='left'; ctx.fillStyle = texto; ctx.font='16px Arial';
+    y += 10; ctx.strokeStyle = borda; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(P, y); ctx.lineTo(W-P, y); ctx.stroke(); ctx.setLineDash([]);
+    y += 18;
+  });
+
+  ctx.textAlign='left'; ctx.font='16px Arial';
+  ctx.fillText(`Odd combinada: ${resumo.odd ? resumo.odd.toFixed(2) : '—'}`, P, y); y+=22;
+  ctx.fillText(`Valor apostado: ${fmtBRL(resumo.valor)}`, P, y); y+=22;
+  ctx.fillText(`Retorno potencial: ${isFinite(resumo.retorno)? fmtBRL(resumo.retorno) : '—'}`, P, y); y+=10;
+
+  y += 10; ctx.strokeStyle = borda; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(P, y); ctx.lineTo(W-P, y); ctx.stroke(); ctx.setLineDash([]);
+  y += 26; ctx.textAlign='center'; ctx.fillStyle = cinza; ctx.font='14px Arial';
+  wrapText(ctx, `Conferir: ${url}`, P, y, W-P*2, 20);
+
+  return canvas.toDataURL('image/png');
+}
+
+/** ========= PIX EMV ========= */
+function tlv(id, value){ const len = String(value.length).padStart(2,'0'); return id + len + value; }
+function crc16(payload){
+  let crc = 0xFFFF;
+  for (let i=0;i<payload.length;i++){
+    crc ^= payload.charCodeAt(i) << 8;
+    for (let j=0;j<8;j++){ crc = (crc & 0x8000) ? ((crc<<1)^0x1021) : (crc<<1); crc &= 0xFFFF; }
+  }
+  return crc.toString(16).toUpperCase().padStart(4,'0');
+}
+function makePixPayload({pixKey, merchantName, merchantCity, amount, txid}){
+  merchantName = toAsciiUpper(merchantName).slice(0,25) || 'APOSTA ANDRE';
+  merchantCity = toAsciiUpper(merchantCity).slice(0,15) || 'BRASIL';
+  const tx = (txid || 'AA').replace(/[^A-Z0-9\-\.\_]/g,'').slice(0,25) || 'AA';
+
+  const gui = tlv('00','BR.GOV.BCB.PIX');
+  const key = tlv('01', pixKey);
+  const mai = tlv('26', gui + key);
+  const mcc = tlv('52','0000');
+  const cur = tlv('53','986');
+  const amt = amount ? tlv('54', Number(amount).toFixed(2)) : '';
+  const ccode = tlv('58','BR');
+  const name = tlv('59', merchantName);
+  const city = tlv('60', merchantCity);
+  const add  = tlv('62', tlv('05', tx));
+  const poi  = tlv('01','12');
+
+  const base = tlv('00','01') + poi + mai + mcc + cur + amt + ccode + name + city + add;
+  const toCRC = base + '6304';
+  const crc = crc16(toCRC);
+  return base + '63' + '04' + crc;
+}
+
+function atualizarPix(amount, txid){
+  const payload = makePixPayload({
+    pixKey: PIX_KEY,
+    merchantName: MERCHANT_NAME,
+    merchantCity: MERCHANT_CITY,
+    amount: Number(amount || 0),
+    txid
+  });
+  byId('pixPayload').textContent = payload;
+  byId('pixValor').textContent = fmtBRL(amount || 0);
+
+  const url = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(payload)}`;
+  byId('pixQr').src = url;
+  byId('pixCard').style.display = '';
+}
+
+/** ========= Helpers ========= */
+function baixar(filename, dataUrl){
+  const a = document.createElement('a'); a.href = dataUrl; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+async function copyText(txt){
+  try { await navigator.clipboard.writeText(txt); return true; } catch { return false; }
+}
+
+/** ========= Init ========= */
+function init() {
+  const params = new URLSearchParams(location.search);
+  const p = params.get('p');
+  if (p) {
+    try {
+      const obj = decode(p);
+      byId('nomeApostador').value = obj.nome || '';
+      byId('valorAposta').value = obj.valor || '';
+      render(true, obj.picks || {}, obj.snapshot || {});
+      Object.entries(obj.snapshot || {}).forEach(([jid, s])=>{
+        if (s.market==='jogador_gols' && s.extra?.player){
+          const nameEl = byId(`playerName-${jid}`);
+          const golsEl = byId(`playerGols-${jid}`);
+          if (nameEl) {
+            if (nameEl.tagName === 'SELECT') {
+              Array.from(nameEl.options).forEach(opt=>{ if (opt.value === s.extra.player) opt.selected = true; });
+            } else {
+              nameEl.value = s.extra.player;
+            }
+          }
+          if (golsEl) golsEl.value = s.option;
+        }
+      });
+      updateResumo();
+      $('#calcCard input#nomeApostador').setAttribute('disabled','');
+      $('#calcCard input#valorAposta').setAttribute('disabled','');
+    } catch(e) { render(); }
+  } else {
+    render();
+  }
+
+  // trava no input para não passar de R$3
+  byId('valorAposta').max = STAKE_MAX;
+  byId('valorAposta').addEventListener('input', ()=>{
+    const v = toNumber(byId('valorAposta').value);
+    if (v > STAKE_MAX) byId('valorAposta').value = STAKE_MAX;
+    updateResumo();
+  });
+
+  byId('valorAposta').addEventListener('input', updateResumo);
+  byId('nomeApostador').addEventListener('input', updateResumo);
+
+  byId('btnBilhete').addEventListener('click', ()=>{
+    // bloqueio de segurança
+    if (byId('btnBilhete').disabled) return;
+
+    const texto = buildBilheteTexto();
+    byId('btnBilheteZap').href = `https://wa.me/?text=${encodeURIComponent(texto)}`;
+
+    desenharBilhetePNG();
+    byId('btnBilhetePNG').disabled = false;
+
+    const rand = Math.random().toString(36).slice(2,8).toUpperCase();
+    const txid = ('AA' + rand).slice(0,25);
+    const valor = toNumber(byId('valorAposta').value);
+    atualizarPix(valor, txid);
+  });
+
+  byId('btnBilhetePNG').addEventListener('click', ()=>{
+    const dataUrl = desenharBilhetePNG();
+    const idRand = Math.random().toString(36).slice(2,8).toUpperCase();
+    baixar(`Aposta_andre_${idRand}.png`, dataUrl);
+  });
+
+  byId('btnCopyKey').addEventListener('click', ()=> copyText(PIX_KEY).then(()=>{}));
+  byId('btnCopyPayload').addEventListener('click', ()=> copyText(byId('pixPayload').textContent.trim()).then(()=>{}));
+  byId('btnPixPng').addEventListener('click', ()=>{
+    const img = byId('pixQr');
+    const c = document.createElement('canvas'); c.width = 160; c.height = 160;
+    const ctx = c.getContext('2d'); 
+    ctx.drawImage(img,0,0,160,160);
+    try { const url = c.toDataURL('image/png'); baixar('PIX_QR.png', url); } catch (e) { alert('Se o navegador bloquear, tire um print do QR.'); }
+  });
+
+  // inicializa estado
+  updateResumo();
+}
+init();
+</script>
+</body>
+</html>
